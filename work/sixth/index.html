@@ -28,6 +28,136 @@
     <script src="../../common/js/jquery.js"></script>
     <script src="./js/appid.js"></script>
     <script>
+      $(function() {
+        // 検索ワード
+        var searchWord;
+        // 現在のページ（初期ページは必ず1なのでこの時点で初期化）
+        var pageNum = 1;
+        // ページの総数
+        var current_total_page;
+        // DOMのlists
+        var lists = $('.lists');
+        $('.search__btn').on('click', function() {
+          lists.empty();
+          $(".pager").remove();
+          searchWord = $('.search__text__input').val();
+          // 検索ワードが空の時
+          if (searchWord == "") {
+            lists.html('<p class="message">検索文字が入力されていません。</p>');
+          }
+          load_ajax();
+        });
+https://www.google.co.jp/intl/ja/chrome/update/#:~:text=chrome%20%E3%82%92%E6%9C%80%E6%96%B0%E3%81%AE%E7%8A%B6%E6%85%8B%E3%81%AB%E4%BF%9D%E3%81%A4%E7%90%86%E7%94%B1
+        // ajax
+        function load_ajax() {
+          $.ajax({
+            url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
+            type: 'GET',
+            datatype: 'json',
+            data: {
+              applicationId: appId,
+              booksGenreId: '001',
+              keyword: searchWord,
+              hits: 20,
+              page: pageNum,
+            }
+          // 通信成功時
+          }).done(function(data) {
+            // 取得した本の数を代入
+            var total_book = data.count;
+            // 取得したページ数を代入
+            current_total_page = now_page(total_book);
+            // 検索結果が0の場合
+            if(data.count === 0) {
+              lists.html('<p class="message">検索結果がありませんでした。<br>別のキーワードで検索してください</p>');
+            // 検索結果が0以上の場合
+            } else if(data.count > 0) {
+              var list;
+              $.each(data.Items,function(i,item){
+                list = '<li class="lists__item">' +
+                  '<div class="lists__item__inner">' +
+                  '<a href="' + item.Item.itemUrl +  '" class="lists__item__link" target="_blank">' +
+                  '<img src="' + item.Item.largeImageUrl + '" class="lists__item__img" alt="">' +
+                  '<p class="lists__item__detail">作品名：' + item.Item.title + '</p>' +
+                  '<p class="lists__item__detail">作者　：' + item.Item.author + '</p>' +
+                  '<p class="lists__item__detail">出版社：' + item.Item.publisherName + '</p>' +
+                  '</a>' + '</div>' + '</li>'
+                lists.append(list);
+              });
+
+              // ページャーの表示
+              var page = '<div class="pager" data-js="pager">' +
+                        '<div class="counter">' +
+                        '<span class="counter-current">' + pageNum +
+                        '</span>' + '/' + '<span class="counter-all">' + current_total_page + '</span>' +
+                        '</div>' + '<div class="btn-wrapper">' +
+                        '<a class="btn-item" data-js="page-prev" href="">' +
+                        '前へ' + '</a>' +
+                        '<a class="btn-item" data-js="page-next" href="">' +
+                        '次へ' + '</a>' + '</div>' + '</div>';
+              lists.after(page);
+              // ページャーの機能呼び出し
+              pager_system();
+            }
+          // エラー時の処理
+          }).fail(function(jqXHR){
+            if(jqXHR.status === 400) {
+              lists.html('<p class="message">検索文字が入力されていません。</p>');
+            } else if(jqXHR.status === 404) {
+              lists.html('<p class="message">検索結果がありませんでした。<br>別のキーワードで検索してください</p>');
+            } else if(jqXHR.status === 429) {
+              lists.html('<p class="message">リクエスト過多です。しばらく時間を置いてからお試しください。</p>');
+            } else {
+              lists.html('<p class="message">通信に失敗しました。インターネットの接続をご確認ください。</p>');
+            }
+          });
+        };
+        // ページ数取得
+        function now_page(total_book) {
+          total_step = Math.ceil(total_book / 20);
+          if(total_step > 100) {
+            total_step = 100;
+          }
+          return total_step;
+        };
+
+        // ページャーの機能作成
+        function pager_system() {
+          // ページャーのボタンのDOMを変数に代入
+          var prev_btn = $('[data-js="page-prev"]');
+          var next_btn = $('[data-js="page-next"]');
+          var page_btn = $('.btn-item');
+
+          // aタグのクリック時遷移するイベントを削除
+          page_btn.click(function(e){
+            e.preventDefault();
+          });
+
+          // ページの最初と最後の場合ボタンを非活性にする。
+          page_btn.removeClass('disabled')
+          if(current_total_page === 1) {
+            page_btn.addClass('disabled');
+          } else if(pageNum <= 1) {
+            prev_btn.addClass('disabled');
+          } else if (pageNum >= current_total_page) {
+            next_btn.addClass('disabled');
+          }
+
+          // ページの移動処理
+          page_btn.on('click', function() {
+            lists.empty();
+            $('.pager').remove();
+            if(pageNum > 1) {
+              pageNum -= 1;
+            } else {
+              pageNum += 1;
+            }
+              load_ajax();
+          });
+        };
+
+      });
+
       // 楽天ブックスの総合検索APIを使って製作してください。
       // answerの挙動を良く見てね！
       //
