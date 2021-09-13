@@ -107,7 +107,7 @@
               lists.html('<p class="message">検索結果がありませんでした。<br>別のキーワードで検索してください</p>');
             } else if(jqXHR.status === 429) {
               lists.html('<p class="message">リクエスト過多です。しばらく時間を置いてからお試しください。</p>');
-            } else {
+            } else if(!(window.navigator.onLine)){
               lists.html('<p class="message">通信に失敗しました。インターネットの接続をご確認ください。</p>');
             }
           });
@@ -161,7 +161,6 @@
             }
           });
         };
-
       });
 
       // 楽天ブックスの総合検索APIを使って製作してください。
