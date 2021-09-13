@@ -30,22 +30,29 @@
     <script>
       $(function() {
         // 検索ワード
-        var searchWord;
+        var searchWord = '';
         // 現在のページ（初期ページは必ず1なのでこの時点で初期化）
         var pageNum = 1;
-        // ページの総数
-        var current_total_page;
-        // DOMのlists
-        var lists = $('.lists');
-        $('.search__btn').on('click', function() {
-          lists.empty();
-          $(".pager").remove();
+        var total_page = 0;
+        $(document).on('click','[data-js="search-btn"], [data-js="page-prev"], [data-js="page-next"]', function() {
+          $('[data-js="book-lists"]').empty();
+          $('[data-js="pager"]').remove();
           // ページを1にリセット
-          pageNum = 1;
-          searchWord = $('.search__text__input').val();
-          // 検索ワードが空の時
-          if (searchWord == "") {
-            lists.html('<p class="message">検索文字が入力されていません。</p>');
+          if($(this).data('js') === 'search-btn') {
+            searchWord = $('[data-js="search-word"]').val();
+            pageNum = 1;
+          }
+          if($(this).data('js') === 'page-prev') {
+            if(pageNum === 1){
+              return false;
+            };
+            pageNum--;
+          }
+          if($(this).data('js') === 'page-next') {
+            if(pageNum === total_page){
+              return false;
+            };
+            pageNum++;
           }
           load_ajax();
         });
@@ -65,101 +72,81 @@
           // 通信成功時
           }).done(function(data) {
             // 取得した本の数を代入
-            var total_book = data.count;
-            // 取得したページ数を代入
-            current_total_page = now_page(total_book);
-            // 検索結果が0の場合
+            total_page = data.pageCount;
+            // 検索結果が0の場合処理を中断する
             if(data.count === 0) {
-              lists.html('<p class="message">検索結果がありませんでした。<br>別のキーワードで検索してください</p>');
-            // 検索結果が0以上の場合
-            } else if(data.count > 0) {
-              $.each(data.Items, function(i,item){
-                var list = '<li class="lists__item">' +
-                  '<div class="lists__item__inner">' +
-                  '<a href="' + item.Item.itemUrl +  '" class="lists__item__link" target="_blank">' +
-                  '<img src="' + item.Item.largeImageUrl + '" class="lists__item__img" alt="">' +
-                  '<p class="lists__item__detail">作品名：' + item.Item.title + '</p>' +
-                  '<p class="lists__item__detail">作者　：' + item.Item.author + '</p>' +
-                  '<p class="lists__item__detail">出版社：' + item.Item.publisherName + '</p>' +
-                  '</a>' + '</div>' + '</li>'
-                lists.append(list);
-              });
-
-              // ページャーの表示
-              var page = '<div class="pager" data-js="pager">' +
-                        '<div class="counter">' +
-                        '<span class="counter-current">' + pageNum +
-                        '</span>' + '/' + '<span class="counter-all">' + current_total_page + '</span>' +
-                        '</div>' + '<div class="btn-wrapper">' +
-                        '<a class="btn-item" data-js="page-prev" href="">' +
-                        '前へ' + '</a>' +
-                        '<a class="btn-item" data-js="page-next" href="">' +
-                        '次へ' + '</a>' + '</div>' + '</div>';
-              lists.after(page);
-              // ページャーの機能呼び出し
-              pager_system();
+              $('[data-js="error-message"]').html('<p class="message">検索結果がありませんでした。<br>別のキーワードで検索してください</p>');
+              return false;
             }
+            // listsの中身を表示
+            listsView(data);
+            // ページャーの表示
+            pageView(data);
+            // ページャーの機能呼び出し
+            pagerSystem(data.pageCount);
           // エラー時の処理
           }).fail(function(jqXHR){
-            if(jqXHR.status === 400) {
-              lists.html('<p class="message">検索文字が入力されていません。</p>');
-            } else if(jqXHR.status === 404) {
-              lists.html('<p class="message">検索結果がありませんでした。<br>別のキーワードで検索してください</p>');
-            } else if(jqXHR.status === 429) {
-              lists.html('<p class="message">リクエスト過多です。しばらく時間を置いてからお試しください。</p>');
-            } else if(!(window.navigator.onLine)){
-              lists.html('<p class="message">通信に失敗しました。インターネットの接続をご確認ください。</p>');
-            }
+            errors(jqXHR);
           });
         };
-        // ページ数取得
-        function now_page(total_book) {
-          var total_page = Math.ceil(total_book / 20);
-          if(total_page > 100) {
-            total_page = 100;
+        // エラー時に呼び出す関数
+        function errors(jqXHR) {
+          switch(jqXHR.status) {
+            case 400:
+                $('[data-js="error-message"]').html('<p class="message">検索文字が入力されていません。</p>');
+                break;
+            case 404:
+                $('[data-js="error-message"]').html('<p class="message">検索結果がありませんでした。<br>別のキーワードで検索してください</p>');
+                break;
+            case 429:
+                $('[data-js="error-message"]').html('<p class="message">リクエスト過多です。しばらく時間を置いてからお試しください。</p>');
+                break;
+            case 0:
+                $('[data-js="error-message"]').html('<p class="message">通信に失敗しました。インターネットの接続をご確認ください。</p>');
+                break;
           }
-          return total_page;
         };
-
+        // listsの表示
+        function listsView(data) {
+          var template = '';
+          $.each(data.Items, function(i,item){
+              template += '<li class="lists__item">' +
+                '<div class="lists__item__inner">' +
+                '<a href="' + item.Item.itemUrl +  '" class="lists__item__link" target="_blank">' +
+                '<img src="' + item.Item.largeImageUrl + '" class="lists__item__img" alt="">' +
+                '<p class="lists__item__detail">作品名：' + item.Item.title + '</p>' +
+                '<p class="lists__item__detail">作者　：' + item.Item.author + '</p>' +
+                '<p class="lists__item__detail">出版社：' + item.Item.publisherName + '</p>' +
+                '</a>' + '</div>' + '</li>'
+          });
+          $('[data-js="book-lists"]').append(template);
+        }
+        // ページャーの表示機能
+        function pageView(data) {
+          var page = '<div class="pager" data-js="pager">' +
+                    '<div class="counter">' +
+                    '<span class="counter-current">' + data.page +
+                    '</span>' + '/' + '<span class="counter-all">' + data.pageCount+ '</span>' +
+                    '</div>' + '<div class="btn-wrapper">' +
+                    '<a class="btn-item" data-js="page-prev" href="">' +
+                    '前へ' + '</a>' +
+                    '<a class="btn-item" data-js="page-next" href="">' +
+                    '次へ' + '</a>' + '</div>' + '</div>';
+          $('[data-js="book-lists"]').after(page);
+        };
         // ページャーの機能作成
-        function pager_system() {
-          // ページャーのボタンのDOMを変数に代入
-          var prev_btn = $('[data-js="page-prev"]');
-          var next_btn = $('[data-js="page-next"]');
-          var page_btn = $('.btn-item');
-
+        function pagerSystem(total_page) {
           // aタグのクリック時遷移するイベントを削除
-          page_btn.click(function(e){
+          $('[data-js]').click(function(e){
             e.preventDefault();
           });
-
           // ページの最初と最後の場合ボタンを非活性にする。
-          page_btn.removeClass('disabled')
-          if(current_total_page === 1) {
-            page_btn.addClass('disabled');
-          } else if(pageNum <= 1) {
-            prev_btn.addClass('disabled');
-          } else if (pageNum >= current_total_page) {
-            next_btn.addClass('disabled');
+          if(pageNum === 1) {
+            $('[data-js="page-prev"]').addClass('disabled');
           }
-
-          // ページの移動処理
-          prev_btn.on('click', function() {
-            if(pageNum > 1) {
-              lists.empty();
-              $('.pager').remove();
-              pageNum -= 1;
-              load_ajax();
-            }
-          });
-          next_btn.on('click', function() {
-            if(pageNum < current_total_page){
-              lists.empty();
-              $('.pager').remove();
-              pageNum += 1;
-              load_ajax();
-            }
-          });
+          if (pageNum === total_page) {
+            $('[data-js="page-next"]').addClass('disabled');
+          }
         };
       });
 
