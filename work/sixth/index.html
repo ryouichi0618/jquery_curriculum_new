@@ -40,6 +40,8 @@
         $('.search__btn').on('click', function() {
           lists.empty();
           $(".pager").remove();
+          // ページを1にリセット
+          pageNum = 1;
           searchWord = $('.search__text__input').val();
           // 検索ワードが空の時
           if (searchWord == "") {
@@ -47,7 +49,6 @@
           }
           load_ajax();
         });
-https://www.google.co.jp/intl/ja/chrome/update/#:~:text=chrome%20%E3%82%92%E6%9C%80%E6%96%B0%E3%81%AE%E7%8A%B6%E6%85%8B%E3%81%AB%E4%BF%9D%E3%81%A4%E7%90%86%E7%94%B1
         // ajax
         function load_ajax() {
           $.ajax({
@@ -72,9 +73,8 @@ https://www.google.co.jp/intl/ja/chrome/update/#:~:text=chrome%20%E3%82%92%E6%9C
               lists.html('<p class="message">検索結果がありませんでした。<br>別のキーワードで検索してください</p>');
             // 検索結果が0以上の場合
             } else if(data.count > 0) {
-              var list;
-              $.each(data.Items,function(i,item){
-                list = '<li class="lists__item">' +
+              $.each(data.Items, function(i,item){
+                var list = '<li class="lists__item">' +
                   '<div class="lists__item__inner">' +
                   '<a href="' + item.Item.itemUrl +  '" class="lists__item__link" target="_blank">' +
                   '<img src="' + item.Item.largeImageUrl + '" class="lists__item__img" alt="">' +
@@ -114,11 +114,11 @@ https://www.google.co.jp/intl/ja/chrome/update/#:~:text=chrome%20%E3%82%92%E6%9C
         };
         // ページ数取得
         function now_page(total_book) {
-          total_step = Math.ceil(total_book / 20);
-          if(total_step > 100) {
-            total_step = 100;
+          var total_page = Math.ceil(total_book / 20);
+          if(total_page > 100) {
+            total_page = 100;
           }
-          return total_step;
+          return total_page;
         };
 
         // ページャーの機能作成
@@ -144,15 +144,21 @@ https://www.google.co.jp/intl/ja/chrome/update/#:~:text=chrome%20%E3%82%92%E6%9C
           }
 
           // ページの移動処理
-          page_btn.on('click', function() {
-            lists.empty();
-            $('.pager').remove();
+          prev_btn.on('click', function() {
             if(pageNum > 1) {
+              lists.empty();
+              $('.pager').remove();
               pageNum -= 1;
-            } else {
-              pageNum += 1;
-            }
               load_ajax();
+            }
+          });
+          next_btn.on('click', function() {
+            if(pageNum < current_total_page){
+              lists.empty();
+              $('.pager').remove();
+              pageNum += 1;
+              load_ajax();
+            }
           });
         };
 
