@@ -33,26 +33,24 @@
         var searchWord = '';
         // 現在のページ（初期ページは必ず1なのでこの時点で初期化）
         var pageNum = 1;
-        var total_page = 0;
-        $(document).on('click','[data-js="search-btn"], [data-js="page-prev"], [data-js="page-next"]', function() {
+        $(document).on('click','[data-js="search-btn"], [data-js="page-prev"], [data-js="page-next"]', function(e) {
+          e.preventDefault();
+          if($(this).hasClass('disabled')) return false;
           $('[data-js="book-lists"]').empty();
+          $('[data-js="error-message"]').empty();
           $('[data-js="pager"]').remove();
           // ページを1にリセット
-          if($(this).data('js') === 'search-btn') {
-            searchWord = $('[data-js="search-word"]').val();
-            pageNum = 1;
-          }
-          if($(this).data('js') === 'page-prev') {
-            if(pageNum === 1){
-              return false;
-            };
-            pageNum--;
-          }
-          if($(this).data('js') === 'page-next') {
-            if(pageNum === total_page){
-              return false;
-            };
-            pageNum++;
+          switch($(this).data('js')) {
+            case 'search-btn':
+              searchWord = $('[data-js="search-word"]').val();
+              pageNum = 1;
+              break;
+            case 'page-prev':
+              pageNum--;
+              break;
+            case 'page-next':
+              pageNum++;
+              break;
           }
           load_ajax();
         });
@@ -71,8 +69,6 @@
             }
           // 通信成功時
           }).done(function(data) {
-            // 取得した本の数を代入
-            total_page = data.pageCount;
             // 検索結果が0の場合処理を中断する
             if(data.count === 0) {
               $('[data-js="error-message"]').html('<p class="message">検索結果がありませんでした。<br>別のキーワードで検索してください</p>');
@@ -83,7 +79,7 @@
             // ページャーの表示
             pageView(data);
             // ページャーの機能呼び出し
-            pagerSystem(data.pageCount);
+            pagerInactive(data.pageCount);
           // エラー時の処理
           }).fail(function(jqXHR){
             errors(jqXHR);
@@ -103,6 +99,9 @@
                 break;
             case 0:
                 $('[data-js="error-message"]').html('<p class="message">通信に失敗しました。インターネットの接続をご確認ください。</p>');
+                break;
+            default:
+                $('[data-js="error-message"]').html('<p class="message">エラーが発生しました。</p>');
                 break;
           }
         };
@@ -135,11 +134,7 @@
           $('[data-js="book-lists"]').after(page);
         };
         // ページャーの機能作成
-        function pagerSystem(total_page) {
-          // aタグのクリック時遷移するイベントを削除
-          $('[data-js]').click(function(e){
-            e.preventDefault();
-          });
+        function pagerInactive(total_page) {
           // ページの最初と最後の場合ボタンを非活性にする。
           if(pageNum === 1) {
             $('[data-js="page-prev"]').addClass('disabled');
@@ -149,66 +144,6 @@
           }
         };
       });
-
-      // 楽天ブックスの総合検索APIを使って製作してください。
-      // answerの挙動を良く見てね！
-      //
-      // 下記URLにAPIの仕様が載っているので、ブラウザで開いて参考にしてください。
-      // https://webservice.rakuten.co.jp/api/bookstotalsearch/
-      //
-      //
-      // [使うメソッド]
-      // e.preventDefault イベントをキャンセルするためのメソッド。今回はaタグの遷移を無効化します。
-      // on('click') onメソッドを使うことで、動的に出力される要素に対してもイベント登録が行えます。
-      // $.each(配列, function functionName() {}) 配列に対しての繰り返し処理が行えます。
-      // $.ajax({}) 外部ファイルやURLに対してデータをリクエストすることができます。
-      // 以下は今回使う$.ajaxの基本的な形です。
-      //
-      // $.ajax({
-      //   url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
-      //   type: 'GET',
-      //   datatype: 'json',
-      //   data: {
-      //     // 「区分:サービス固有パラメーター」を確認して、必要な情報をdata内に入れましょう。
-      //     applicationId: appId, (今回はこの変数をIDとして使用します) ※メンターから別途渡されるファイルを読み込んでください。
-      //     booksGenreId: '001'
-      //   },
-      // }).done(function(data) {
-      //   // この中にデータ取得後の動きを記述していきます。
-      //   console.log(data);
-      // });
-      //
-      //
-      // $.ajaxによってデータが取得できたら、必要なデータ(作品名とか作者名とか)を取得します。
-      // 取得できたらHTMLに<ul class='lists'></ul>を用意しているので、下のテンプレに沿ってデータを入れ込みましょう。
-      // <li class="lists__item">
-      //  <div class="lists__item__inner">
-      //    <a href="" class="lists__item__link" target="_blank">
-      //      <img src="" class="lists__item__img" alt="">
-      //      <p class="lists__item__detail">作品名：</p>
-      //      <p class="lists__item__detail">作者　：</p>
-      //      <p class="lists__item__detail">出版社：</p>
-      //    </a>
-      //  </div>
-      // </li>
-      //
-      // 取得できた書籍の件数をもとに、ページャを作成しましょう
-      // ページャの条件
-      // ├ 「現在のページ数」と「全てのページ数」が表示されている
-      // ├ 「前へ」と「次へ」のボタンがある
-      // ├ 1ページ目では「前へ」に、最後のページでは「次へ」にdisabledクラスをつけて非活性（使用不能）にする
-      // └ 1ページしかない場合はどちらもdisabledクラスをつけて非活性にする
-      //
-      // ページャのテンプレート
-      // <div class="pager" data-js="pager">
-      //   <div class="counter">
-      //     <span class="counter-current"></span>/<span class="counter-all"></span>
-      //   </div>
-      //   <div class="btn-wrapper">
-      //     <a class="btn-item" data-js="page-prev" href="">前へ</a>
-      //     <a class="btn-item" data-js="page-next" href="">次へ</a>
-      //   </div>
-      // </div>
     </script>
   </body>
 </html>
